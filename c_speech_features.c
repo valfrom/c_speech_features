@@ -15,7 +15,7 @@ csf_mfcc(const short* aSignal, unsigned int aSignalLen, int aSampleRate,
 {
   int i, j, k, idx, fidx, didx;
   csf_float* feat;
-  csf_float* energy;
+  csf_float* energy = NULL;
 
   int n_frames = csf_logfbank(aSignal, aSignalLen, aSampleRate, aWinLen, aWinStep,
                               aNFilters, aNFFT, aLowFreq, aHighFreq, aPreemph,
@@ -23,7 +23,7 @@ csf_mfcc(const short* aSignal, unsigned int aSignalLen, int aSampleRate,
 
   // Allocate an array so we can calculate the inner loop multipliers
   // in the DCT-II just one time.
-  double* dct2f = (double*)malloc(sizeof(double) * aNFilters * aNCep);
+  double dct2f[aNFilters];
 
   // Perform DCT-II
   double sf1 = csf_sqrt(1 / (4 * (double)aNFilters));
@@ -31,9 +31,9 @@ csf_mfcc(const short* aSignal, unsigned int aSignalLen, int aSampleRate,
   csf_float* mfcc = (csf_float*)malloc(sizeof(csf_float) * n_frames * aNCep);
   for (i = 0, idx = 0, fidx = 0; i < n_frames;
        i++, idx += aNCep, fidx += aNFilters) {
-    for (j = 0, didx = 0; j < aNCep; j++) {
+    for (j = 0; j < aNCep; j++) {
       double sum = 0.0;
-      for (k = 0; k < aNFilters; k++, didx++) {
+      for (k = 0,  didx = 0; k < aNFilters; k++, didx++) {
         if (i == 0) {
           dct2f[didx] = cos(M_PI * j * (2 * k + 1) / (double)(2 * aNFilters));
         }
@@ -42,9 +42,6 @@ csf_mfcc(const short* aSignal, unsigned int aSignalLen, int aSampleRate,
       mfcc[idx+j] = (csf_float)(sum * 2.0 * ((i == 0 && j == 0) ? sf1 : sf2));
     }
   }
-
-  // Free inner-loop multiplier cache
-  free(dct2f);
 
   // Free features array
   free(feat);
@@ -320,19 +317,25 @@ csf_get_filterbanks(int aNFilters, int aNFFT, int aSampleRate,
   for (i = 0; i < aNFilters + 2; i++) {
     csf_float melpoint = ((highmel - lowmel) /
                           (csf_float)(aNFilters + 1) * i) + lowmel;
-    bin[i] = (int)csf_floor((aNFFT + 1) *
-                            CSF_MEL2HZ(melpoint) / (csf_float)aSampleRate);
+    bin[i] = MAX(0, (int)csf_floor((aNFFT + 1) *
+                            CSF_MEL2HZ(melpoint) / (csf_float)aSampleRate));
   }
 
   for (i = 0, idx = 0; i < aNFilters; i++, idx += feat_width) {
     int start = MIN(bin[i], bin[i+1]);
     int end = MAX(bin[i], bin[i+1]);
     for (j = start; j < end; j++) {
+      if(idx + j >= aNFilters * feat_width) {
+        continue;
+      }
       fbank[idx + j] = (j - bin[i]) / (csf_float)(bin[i+1]-bin[i]);
     }
     start = MIN(bin[i+1], bin[i+2]);
     end = MAX(bin[i+1], bin[i+2]);
     for (j = start; j < end; j++) {
+      if(idx + j >= aNFilters * feat_width) {
+        continue;
+      }
       fbank[idx + j] = (bin[i+2]-j) / (csf_float)(bin[i+2]-bin[i+1]);
     }
   }

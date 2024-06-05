@@ -476,7 +476,7 @@ csf_powspec(const csf_float* aFrames, int aNFrames, int aNFFT)
 
   // Compute the power spectrum
   for (i = 0; i < aNFrames * fft_out; i++) {
-    pspec[i] = (1.0/aNFFT) * powf(pspec[i], 2.0);
+    pspec[i] = (1.0/aNFFT) * csf_pow(pspec[i], 2.0);
   }
 
   return pspec;

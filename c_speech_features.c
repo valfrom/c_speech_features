@@ -23,26 +23,21 @@ csf_mfcc(const short* aSignal, unsigned int aSignalLen, int aSampleRate,
 
   // Allocate an array so we can calculate the inner loop multipliers
   // in the DCT-II just one time.
-  double dct2f[aNFilters];
-
   // Perform DCT-II
   double sf1 = csf_sqrt(1 / (4 * (double)aNFilters));
   double sf2 = csf_sqrt(1 / (2 * (double)aNFilters));
   csf_float* mfcc = (csf_float*)malloc(sizeof(csf_float) * n_frames * aNCep);
   for (i = 0, idx = 0, fidx = 0; i < n_frames;
        i++, idx += aNCep, fidx += aNFilters) {
-    for (j = 0; j < aNCep; j++) {
+      for (j = 0; j < aNCep; j++) {
       double sum = 0.0;
-      for (k = 0,  didx = 0; k < aNFilters; k++, didx++) {
-        if (i == 0) {
-          dct2f[didx] = cos(M_PI * j * (2 * k + 1) / (double)(2 * aNFilters));
-        }
-        sum += (double)feat[fidx+k] * dct2f[didx];
+      for (k = 0; k < aNFilters; k++) {
+        sum += (double)feat[fidx+k] * cos(M_PI * j * (2 * k + 1) / (double)(2 * aNFilters));
       }
-      mfcc[idx+j] = (csf_float)(sum * 2.0 * ((i == 0 && j == 0) ? sf1 : sf2));
+      mfcc[idx+j] = (csf_float)(sum * 2.0 * ((j == 0) ? sf1 : sf2));
     }
   }
-
+  
   // Free features array
   free(feat);
 
@@ -257,7 +252,7 @@ csf_lifter(csf_float* aCepstra, int aNFrames, int aNCep, int aCepLifter)
   int i, j, idx;
 
   csf_float lifter = aCepLifter / 2.0;
-  csf_float* factors = malloc(sizeof(csf_float) * aNCep);
+  csf_float* factors = (csf_float*)malloc(sizeof(csf_float) * aNCep);
   for (i = 0; i < aNCep; i++) {
     factors[i] = 1 + lifter * csf_sin(M_PI * i / (csf_float)aCepLifter);
   }
